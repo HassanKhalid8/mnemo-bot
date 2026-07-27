@@ -1,0 +1,29 @@
+# --- secrets: never commit these -------------------------------------------
+.env
+.env.local
+*.key
+
+# --- local data -------------------------------------------------------------
+# Your saved conversations. Personal, and regenerated automatically on first run.
+chat_history.db
+chat_history.db-journal
+*.sqlite
+*.sqlite3
+
+# --- python -----------------------------------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# --- editors / OS -----------------------------------------------------------
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
+desktop.ini
