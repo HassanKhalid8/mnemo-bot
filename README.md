@@ -1,16 +1,25 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:7c6cff,100:22d3ee&height=200&section=header&text=Mnemo&fontSize=76&fontColor=ffffff&fontAlignY=34&desc=the%20chatbot%20that%20actually%20remembers&descAlignY=54&descSize=18" width="100%" alt="Mnemo" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:7c6cff,100:22d3ee&height=210&section=header&text=Mnemo&fontSize=78&fontColor=ffffff&fontAlignY=33&desc=the%20chatbot%20that%20actually%20remembers&descAlignY=52&descSize=18" width="100%" alt="Mnemo" />
 
-<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=20&duration=3200&pause=900&color=7C6CFF&center=true&vCenter=true&width=620&lines=Remembers+you+across+conversations.;Survives+restarts.;Talks+back+in+14+neural+voices.;Forgets+completely+when+you+ask+it+to." alt="Typing intro" />
+<img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=500&size=20&duration=3200&pause=900&color=7C6CFF&center=true&vCenter=true&width=680&lines=Remembers+you+across+conversations.;Survives+restarts%2C+redeploys+and+devices.;Chat+first%2C+sign+up+later.;Forgets+completely+when+you+ask+it+to." alt="Typing intro" />
 
 <br/><br/>
+
+### [**→ Try it live**](https://mnemo-bot.vercel.app/)
+
+<sub>No sign-up needed to start talking.</sub>
+
+<br/>
+
+[![Live Demo](https://img.shields.io/badge/Live_Demo-mnemo--bot.vercel.app-7c6cff?style=for-the-badge&logo=vercel&logoColor=white)](https://mnemo-bot.vercel.app/)
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.0-000000?style=for-the-badge&logo=flask&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Google_Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-22d3ee?style=for-the-badge)
 
 <br/>
@@ -20,6 +29,21 @@
 Most chatbots forget you the moment you close the tab. Mnemo doesn't.
 
 </div>
+
+---
+
+## 🌐 Live demo
+
+### **https://mnemo-bot.vercel.app**
+
+Running on Vercel, backed by Supabase Postgres. **No sign-up required to try it** — open the link and start typing. That conversation stays in your browser and is never written down.
+
+Make an account and it's saved, along with everything the bot learns about you, waiting on any device you sign in from. The chat you started before signing up comes with you.
+
+| | |
+|---|---|
+| 🔗 **App** | https://mnemo-bot.vercel.app |
+| 💻 **Source** | https://github.com/HassanKhalid8/Mnemo-bot |
 
 ---
 
@@ -60,21 +84,21 @@ Facts about you are pulled out of conversations in the background and fed into *
 <td width="50%" valign="top">
 
 ### 💾 Nothing is lost
-Every turn is mirrored to the database as it happens. Close the tab, kill the server, reboot the machine — your history is exactly where you left it.
+Every turn is mirrored to Postgres as it happens. Close the tab, kill the server, redeploy — your history is exactly where you left it.
 
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top">
 
-### 👤 Accounts, with a way in
-No login wall: land on the page and start typing. That chat lives in your browser and is never written down. Make an account and it's saved — along with everything the bot has learned — waiting for you on any device. The conversation you started signed-out comes with you.
+### 🚪 No login wall
+Land on the page and start typing. That conversation lives in your browser and is never written down. Sign up and it's saved — **including the chat you'd already started**, which gets adopted into your new account.
 
 </td>
 <td width="50%" valign="top">
 
 ### 🔒 Yours and only yours
-Every conversation, message and remembered fact hangs off a user id, and every query filters on it. Guessing someone else's conversation id returns a 404, not their chat.
+Every conversation, message and remembered fact hangs off a user id, and every query filters on it *in the SQL*. Guessing someone else's conversation id returns a 404, not their chat.
 
 </td>
 </tr>
@@ -88,7 +112,7 @@ A thread that lives in RAM and nowhere else. Never written to disk, learns nothi
 <td width="50%" valign="top">
 
 ### 🔍 Search everything
-`Ctrl+K` searches every message you've ever sent. Arrow keys to move, Enter to jump straight to that moment in its conversation.
+Full-text search across every message you've ever sent, scoped to your account. `Ctrl+K`, type, jump straight to the message in its thread.
 
 </td>
 </tr>
@@ -96,7 +120,7 @@ A thread that lives in RAM and nowhere else. Never written to disk, learns nothi
 <td width="50%" valign="top">
 
 ### 🔊 Voice in and out
-14 Microsoft neural voices — **no API key, no character quota**. Plus dictation through the Web Speech API. Fully hands-free if you want it.
+Dictate with the Web Speech API. Replies read back in 14 Microsoft neural voices — free, no API key, no character quota.
 
 </td>
 <td width="50%" valign="top">
@@ -141,6 +165,81 @@ Each conversation picks its own model and custom instructions. One thread a tuto
 
 ---
 
+## How a message travels
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant F as Flask
+    participant D as Supabase
+    participant G as Gemini
+
+    B->>F: POST /api/chat
+    F->>F: who is this? (signed cookie)
+    alt signed in
+        F->>D: append user turn
+        F->>D: fetch remembered facts
+    else signed out
+        Note over F: transcript arrives<br/>in the request body<br/>nothing is stored
+    end
+    F->>G: system prompt + full transcript
+    G-->>F: stream of tokens
+    F-->>B: SSE: delta, delta, delta…
+    F-->>B: SSE: done
+    Note over F,D: after the reply is delivered
+    F->>G: anything durable to learn?
+    F->>D: store new facts · summarise if long
+```
+
+---
+
+## Data model
+
+Everything below `users` is owned. There is no unowned path to a row.
+
+```mermaid
+erDiagram
+    users ||--o{ conversations : owns
+    users ||--o{ memories : owns
+    conversations ||--o{ messages : contains
+
+    users {
+        bigint id PK
+        text email UK
+        text name
+        text password_hash
+        float created_at
+    }
+    conversations {
+        bigint id PK
+        bigint user_id FK
+        text title
+        text system_prompt
+        text model
+        int pinned
+        text summary
+        int summarized_through
+    }
+    messages {
+        bigint id PK
+        bigint conversation_id FK
+        text role
+        text text
+        float created_at
+    }
+    memories {
+        bigint id PK
+        bigint user_id FK
+        text text
+        bigint source_conversation_id
+        float created_at
+    }
+```
+
+`memories` is unique on **(user_id, text)**, not on text alone — two people are both allowed to have told it where they live.
+
+---
+
 ## How the memory actually works
 
 <details open>
@@ -169,18 +268,13 @@ Gemini is stateless between requests. Resending the list is the whole trick.
 </details>
 
 <details>
-<summary><b>Layer 2 — the SQLite mirror</b></summary>
+<summary><b>Layer 2 — the database mirror</b></summary>
 
 <br/>
 
-Two tables, no ORM, zero extra dependencies:
+Four tables, no ORM, zero extra dependencies beyond the driver. Every append to the list also writes a row. On the first request after a restart, the list rebuilds itself from the table — so live chat reads stay in RAM, and the database is purely the safety net.
 
-```sql
-conversations (id, title, created_at, updated_at, system_prompt, model, pinned, summary, ...)
-messages      (id, conversation_id, role, text, created_at)
-```
-
-Every append to the list also writes a row. On the first request after a restart, the list rebuilds itself from the table — so live chat reads stay in RAM, and disk is purely the safety net.
+The same SQL runs on both backends. Queries are written once with SQLite-style `?` placeholders and translated on the way out, so there is exactly one copy of every query in the codebase.
 
 </details>
 
@@ -189,9 +283,11 @@ Every append to the list also writes a row. On the first request after a restart
 
 <br/>
 
-After each exchange, a background thread asks a small, cheap model one question: *is there anything here worth knowing weeks from now?*
+After each exchange, a background job asks a small, cheap model one question: *is there anything here worth knowing weeks from now?*
 
-Durable facts (your name, your stack, an ongoing project) go into a `memories` table and get injected into the system prompt of every conversation. Transient chatter is discarded — the extractor is told to prefer returning nothing, because that's the common case.
+Durable facts (your name, your stack, an ongoing project) go into a `memories` table and get injected into the system prompt of every conversation you own. Transient chatter is discarded — the extractor is told to prefer returning nothing, because that's the common case.
+
+Two layers of de-duplication stop the same fact being re-learned in slightly different words every turn: the model is shown what's already known, and anything that slips through is caught by Jaccard word-overlap.
 
 Everything it has learned is visible and individually deletable under **What it remembers**.
 
@@ -206,30 +302,41 @@ Past a token threshold, the oldest turns are collapsed into prose and stored on 
 
 </details>
 
+<details>
+<summary><b>Layer 5 — your account</b></summary>
+
+<br/>
+
+Email and password, hashed with PBKDF2-SHA256. Identity lives in Flask's cryptographically signed session cookie — there is no server-side session store to run, which is what makes it work on serverless.
+
+Signed out, the app is fully usable: the browser holds the transcript and posts it back with each turn, the server writes nothing, and no stored memory is read or learned. Sign up and the conversation you were in the middle of is offered up and adopted into the new account.
+
+</details>
+
 ---
 
 ## Quick start
 
+> [!TIP]
+> Just want to see it work? It's already deployed at **https://mnemo-bot.vercel.app** — no setup, no API key, no account.
+
 > **Prerequisites:** Python 3.10+ and a free Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
 ```bash
-git clone https://github.com/<your-username>/mnemo.git
-cd mnemo
+git clone https://github.com/HassanKhalid8/Mnemo-bot.git
+cd Mnemo-bot
 
 python -m venv .venv
 .venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 
 pip install -r requirements.txt
 
-cp .env.example .env            # then paste your key into .env
+cp .env.example .env            # then fill it in
 
 python app.py
 ```
 
-Open **http://localhost:5000**.
-
-> [!TIP]
-> Run `app.py` with the same interpreter you installed into. If the voice picker says *"edge-tts isn't installed"*, you're on a different Python.
+Open **http://localhost:5000**. With no `DATABASE_URL` set it uses a local SQLite file — zero setup.
 
 <details>
 <summary><b>Configuration</b></summary>
@@ -248,6 +355,12 @@ Open **http://localhost:5000**.
 | `KEEP_RECENT_MESSAGES` | `8` | Turns kept verbatim when summarising |
 | `SERVERLESS` | auto | Set to `1` on serverless hosts. Vercel sets `VERCEL` itself |
 
+Generate a secret key with:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
 </details>
 
 ---
@@ -259,31 +372,58 @@ Locally, history lives in a SQLite file. **That file cannot survive a serverless
 ```mermaid
 graph LR
     A["DATABASE_URL<br/>unset"] -->|local dev| B["📁 SQLite file<br/><i>zero setup</i>"]
-    C["DATABASE_URL<br/>set"] -->|any host| D["🐘 Postgres<br/><i>survives anything</i>"]
+    C["DATABASE_URL<br/>set"] -->|any host| D["🐘 Supabase Postgres<br/><i>survives anything</i>"]
 
     style A fill:#1e2430,stroke:#3a4152,color:#e9ecf3
     style B fill:#241f4d,stroke:#7c6cff,color:#e9ecf3
     style C fill:#1e2430,stroke:#3a4152,color:#e9ecf3
-    style D fill:#123040,stroke:#22d3ee,color:#e9ecf3
+    style D fill:#123040,stroke:#3FCF8E,color:#e9ecf3
 ```
 
 Nothing else changes — the schema, the queries, and the in-memory list all behave identically.
 
-### 1 · Create a database
+### 1 · Create the database
 
-[Supabase](https://supabase.com) has a free tier and is what this project is set up for. Create a project, then **Project Settings → Database → Connection string → URI**.
+[Supabase](https://supabase.com) free tier. Create a project, then **Connect → Direct → Connection string**, format **URI**.
 
 > [!IMPORTANT]
-> Take the **pooler** string — its host contains `pooler.supabase.com` — not the direct `db.<ref>.supabase.co` one. Serverless functions open a fresh connection per request and will exhaust the direct host's connection limit. Remember to swap `[YOUR-PASSWORD]` for your real database password.
+> Take the **Transaction pooler** string — host contains `pooler.supabase.com`, port `6543` — not the direct `db.<ref>.supabase.co` one. Serverless opens a fresh connection per request and will exhaust the direct host's limit. Replace `[YOUR-PASSWORD]` with your real password, and percent-encode it if it contains `@ : / ? # %`.
 
-The tables create themselves on first run, so there's no SQL to paste anywhere. [Neon](https://neon.tech) works identically if you'd rather use it.
+The tables create themselves on first run. There is no SQL to paste anywhere.
+
+### 2 · Deploy to Vercel
+
+`vercel.json` and `api/index.py` are already in the repo. Import the project on [vercel.com](https://vercel.com/new), then add three environment variables (Production, Preview **and** Development):
+
+```
+GEMINI_API_KEY   = your Google AI Studio key
+SECRET_KEY       = a long random hex string
+DATABASE_URL     = your Supabase pooler URI
+```
+
+Redeploy after adding them — environment variables only take effect at build time.
+
+> [!WARNING]
+> **Serverless trade-offs.** Functions are short-lived and isolated, which costs two things:
+> - **Streaming may buffer.** Replies can arrive in chunks rather than word-by-word. Degrades gracefully — nothing breaks, it just feels less live.
+> - **Incognito threads are per-instance.** They're held in RAM by design, so a follow-up landing on a different instance reports as purged. Fine at low traffic.
+>
+> For the full experience, a long-running host (Render, Railway, Fly) works without either caveat: `gunicorn app:app --workers 1 --threads 8 --timeout 120`.
+
+### 3 · Verify
+
+```bash
+curl https://your-app.vercel.app/api/config
+```
+
+Then sign in and hit `/api/history` — `"storage": "postgres"` means persistence is live. `"sqlite"` means `DATABASE_URL` didn't reach the app.
 
 <details>
-<summary><b>Moving your existing local chats across</b></summary>
+<summary><b>Moving existing local chats across</b></summary>
 
 <br/>
 
-Before accounts existed, everything in `chat_history.db` belonged to whoever was at the machine — so those rows have no owner and won't show up for anyone. `migrate_to_supabase.py` copies them into the hosted database under one account:
+Rows created before accounts existed have no owner and won't show up for anyone. `migrate_to_supabase.py` copies them into the hosted database under one account:
 
 ```bash
 # 1. put the Supabase URI in .env as DATABASE_URL
@@ -293,134 +433,117 @@ python migrate_to_supabase.py you@example.com --dry-run   # see what it would co
 python migrate_to_supabase.py you@example.com             # do it
 ```
 
-It only ever reads the SQLite file, and refuses to run twice for the same account unless you pass `--again` — so you can't end up with everything duplicated.
+It only ever reads the SQLite file, preserves titles, models, pins and timestamps, and refuses to run twice for the same account unless you pass `--again`.
 
 </details>
 
-### 2 · Deploy
+---
 
-<details open>
-<summary><b>Vercel</b></summary>
-
-<br/>
-
-`vercel.json` and `api/index.py` are already in the repo. Import the project on [vercel.com](https://vercel.com/new), then add three environment variables:
-
-```
-GEMINI_API_KEY   = your key
-SECRET_KEY       = python -c "import secrets; print(secrets.token_hex(32))"
-DATABASE_URL     = your Supabase pooler connection string
-```
-
-Deploy. Confirm it picked up the right store by visiting `/api/history` — it reports `"storage": "postgres"`.
-
-> [!WARNING]
-> **Vercel is a workable but imperfect host for this app.** Serverless functions are short-lived and isolated, which costs you two things:
-> - **Streaming may buffer.** Replies can arrive all at once instead of word-by-word. The app degrades gracefully — nothing breaks, it just feels less live.
-> - **Incognito threads are per-instance.** They're held in RAM by design, so if a follow-up request lands on a different instance the session reports as purged. Fine at low traffic, unreliable under load.
-
-</details>
+## API
 
 <details>
-<summary><b>Render — recommended for the full experience</b></summary>
+<summary><b>Every endpoint</b></summary>
 
 <br/>
 
-A normal long-running process, so streaming and incognito both work exactly as they do locally. Free tier available (spins down when idle, ~50s cold start).
+**Auth**
 
-New → Web Service → connect the repo, then:
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/auth/me` | Current user, or `null` |
+| `POST` | `/api/auth/signup` | Create an account and sign in |
+| `POST` | `/api/auth/login` | Sign in |
+| `POST` | `/api/auth/logout` | Clear the session |
 
-| Setting | Value |
-|---|---|
-| Build command | `pip install -r requirements.txt` |
-| Start command | `gunicorn app:app --workers 1 --threads 8 --timeout 120` |
-| Environment | `GEMINI_API_KEY`, `SECRET_KEY`, `DATABASE_URL` |
+**Chat**
 
-Add `gunicorn` to `requirements.txt` for this path. Use one worker so the in-memory conversation cache stays coherent.
+| Method | Route | Purpose |
+|---|---|---|
+| `POST` | `/api/chat` | Send a turn, receive an SSE stream. Works signed out via `guest_history` |
+| `GET` | `/api/config` | Models, defaults, whether a key is configured |
+| `GET` | `/api/context` | Token usage for a conversation |
+
+**Conversations** *(all require auth)*
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` `POST` `DELETE` | `/api/conversations` | List · create · wipe all |
+| `GET` `PATCH` `DELETE` | `/api/conversations/<id>` | Read · rename/pin/configure · delete |
+| `POST` | `/api/conversations/import` | Adopt a signed-out transcript |
+| `POST` | `/api/reset` | Clear one thread's messages, keep the thread |
+| `GET` | `/api/search?q=` | Full-text search your messages |
+| `GET` | `/api/history` | Raw in-memory arrays + stats + which backend is live |
+
+**Memory** *(all require auth)*
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` `POST` `DELETE` | `/api/memories` | List · teach directly · forget everything |
+| `DELETE` | `/api/memories/<id>` | Forget one fact |
+| `POST` | `/api/memories/dedupe` | Collapse facts that say the same thing |
+
+**Other**
+
+| Method | Route | Purpose |
+|---|---|---|
+| `POST` `DELETE` | `/api/incognito` | Start / purge a RAM-only thread |
+| `GET` | `/api/voices` | Available neural voices |
+| `POST` | `/api/tts` | Synthesise speech (returns MP3) |
 
 </details>
 
-### 3 · Verify
+---
 
-```bash
-curl https://your-app.vercel.app/api/history
-```
+## Security notes
 
-`"storage": "postgres"` means persistence is live. `"sqlite"` means `DATABASE_URL` didn't reach the app.
+- Passwords are stored **only** as PBKDF2-SHA256 hashes. Nothing in the codebase can read a password back.
+- Login failures return one message for both "no such account" and "wrong password", so the form can't be used to enumerate registered emails.
+- Ownership is enforced **in the query**, not in a route guard — `WHERE id = ? AND user_id = ?`. A conversation you don't own is indistinguishable from one that doesn't exist.
+- The session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` in production.
+- `.env` and the local database are gitignored and have never been committed.
+- Incognito threads and signed-out chats never read stored memories, so nothing can leak into a conversation that isn't the owner's.
 
 ---
 
 ## Project layout
 
 ```
-mnemo/
-├── app.py              # Flask server · Gemini calls · accounts · the in-memory lists
-├── db.py               # storage: SQLite or Postgres, same schema either way
-├── tts.py              # edge-tts wrapper + curated voice list
+Mnemo-bot/
+├── app.py                  # Flask server · Gemini calls · accounts · the in-memory lists
+├── db.py                   # storage: SQLite or Postgres, same schema either way
+├── tts.py                  # edge-tts wrapper + curated voice list
 ├── migrate_to_supabase.py  # one-shot: local SQLite history -> hosted Postgres
 ├── requirements.txt
-├── vercel.json         # serverless routing + bundled templates/static
+├── vercel.json             # serverless routing + bundled templates/static
 ├── .env.example
 ├── api/
-│   └── index.py        # serverless entry point (re-exports the Flask app)
+│   └── index.py            # serverless entry point (re-exports the Flask app)
 ├── templates/
-│   └── index.html      # app shell
+│   └── index.html          # the whole UI
 └── static/
-    ├── style.css       # design tokens, both themes, incognito palette
-    ├── markdown.js     # hand-rolled Markdown renderer (escapes before parsing)
-    └── script.js       # conversations · SSE streaming · search · voice
+    ├── script.js           # frontend: SSE, auth, conversations, search, voice
+    ├── style.css           # dark-first design system, full light theme
+    └── markdown.js         # dependency-free Markdown renderer
 ```
-
-<details>
-<summary><b>API reference</b></summary>
-
-<br/>
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| `GET` | `/api/conversations` | List threads |
-| `POST` | `/api/conversations` | Create a thread |
-| `GET` `PATCH` `DELETE` | `/api/conversations/<id>` | Read · rename/pin/configure · delete |
-| `POST` | `/api/chat` | SSE stream: `start` → `delta` → `done` / `error` |
-| `POST` | `/api/reset` | Clear one thread's messages, or all |
-| `GET` | `/api/history` | The raw in-memory array, for inspection |
-| `GET` | `/api/search?q=` | Search every stored message |
-| `GET` `POST` `DELETE` | `/api/memories` | Long-term facts |
-| `POST` | `/api/incognito` | Start a RAM-only thread |
-| `DELETE` | `/api/incognito/<id>` | Purge it |
-| `GET` | `/api/context` | Token usage for a thread |
-| `GET` | `/api/voices` | Available voices |
-| `POST` | `/api/tts` | Text → `audio/mpeg` |
-
-</details>
-
----
-
-## Notes
-
-**On voice.** Mnemo uses [`edge-tts`](https://pypi.org/project/edge-tts/), which speaks to the same free endpoint Microsoft Edge's *Read aloud* uses. No key, no account, no monthly character cap. The voices are the neural models Azure Speech sells. Fair-use limits apply if you hammer it; for normal chat playback it's effectively unlimited. If it's ever unreachable, the app falls back to the browser's built-in speech engine.
-
-**On rate limits.** Gemini's free tier caps requests per minute and per day. Hitting one produces a clear message rather than a stack trace. `Flash Lite` has the most generous quota; `Pro` has very little.
-
-**On security.** Model output is HTML-escaped *before* Markdown parsing, so only tags the renderer itself generates can reach the DOM.
-
-**On privacy.** Everything is local. The SQLite file sits in the project directory and is gitignored — no history leaves your machine except the transcript sent to Gemini to generate each reply.
 
 ---
 
 ## Roadmap
 
 - [x] Multi-user sessions keyed on a cookie
+- [x] Hosted Postgres via Supabase
 - [ ] Password reset by email
 - [ ] File and image attachments (Gemini is already multimodal)
-- [ ] SQLite FTS5 for ranked search
+- [ ] Postgres full-text search with ranking
 - [ ] Token and latency dashboard
 
 ---
 
 <div align="center">
 
-Built with Flask, Gemini, and a plain Python list.
+Built with Flask, Gemini, Supabase, and a plain Python list.
+
+[**Try it live →**](https://mnemo-bot.vercel.app/)
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:22d3ee,100:7c6cff&height=120&section=footer" width="100%" alt="" />
 
