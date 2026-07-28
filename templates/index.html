@@ -59,6 +59,19 @@
 
       <nav class="conversations" id="conversation-list" aria-label="Saved conversations"></nav>
 
+      <!-- Shown instead of the conversation list when nobody is signed in. -->
+      <div class="guest-card" id="guest-card" hidden>
+        <div class="guest-card-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a4 4 0 0 0-4 4v.4A3.5 3.5 0 0 0 6.5 14H8v3a4 4 0 0 0 8 0v-3h1.5A3.5 3.5 0 0 0 16 7.4V7a4 4 0 0 0-4-4Z"/>
+          </svg>
+        </div>
+        <h3>Your chats aren't being saved</h3>
+        <p>Make an account and every conversation — and everything the bot learns about you — comes back the next time you sign in, on any device.</p>
+        <button type="button" class="primary-btn block" id="guest-signup">Create an account</button>
+        <button type="button" class="ghost-btn block" id="guest-login">I already have one</button>
+      </div>
+
       <button type="button" class="memory-pill" id="memory-btn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 3a4 4 0 0 0-4 4v.4A3.5 3.5 0 0 0 6.5 14H8v3a4 4 0 0 0 8 0v-3h1.5A3.5 3.5 0 0 0 16 7.4V7a4 4 0 0 0-4-4Z"/>
@@ -66,6 +79,17 @@
         <span>What it remembers</span>
         <b id="memory-count">0</b>
       </button>
+
+      <div class="account-row" id="account-row">
+        <button type="button" class="account-btn" id="account-btn">
+          <span class="avatar-chip" id="account-initial">?</span>
+          <span class="account-text">
+            <b id="account-name">Not signed in</b>
+            <i id="account-sub">Sign in to save chats</i>
+          </span>
+          <svg class="account-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
 
       <div class="sidebar-foot">
         <div class="stat" id="stat-line">saved on disk</div>
@@ -157,6 +181,14 @@
         <button type="button" id="incognito-exit">Leave</button>
       </div>
 
+      <div class="guest-bar" id="guest-bar" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="3.4"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/>
+        </svg>
+        <span><b>You're signed out.</b> The chat works, but this conversation only exists in this tab — refresh and it's gone.</span>
+        <button type="button" id="guest-bar-signin">Sign in to save it</button>
+      </div>
+
       <div class="thread-wrap">
         <div class="thread" id="thread" aria-live="polite">
           <div class="empty-state" id="empty-state">
@@ -233,7 +265,7 @@
         <kbd>Esc</kbd>
       </div>
       <div class="search-results" id="search-results">
-        <p class="search-hint">Type at least 2 characters. Results come straight out of the SQLite history.</p>
+        <p class="search-hint">Type at least 2 characters. Results come straight out of your saved history.</p>
       </div>
     </div>
   </div>
@@ -319,6 +351,56 @@
           <button type="button" class="ghost-btn danger-btn" id="memory-clear">Forget everything</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ============================ AUTH MODAL ============================ -->
+  <div class="modal-backdrop" id="auth-modal" hidden>
+    <div class="modal auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <button type="button" class="icon-btn auth-close" id="auth-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+
+      <div class="auth-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3a4 4 0 0 0-4 4v.4A3.5 3.5 0 0 0 6.5 14H8v3a4 4 0 0 0 8 0v-3h1.5A3.5 3.5 0 0 0 16 7.4V7a4 4 0 0 0-4-4Z"/>
+          <path d="M12 7v10M9 10h6"/>
+        </svg>
+      </div>
+
+      <h3 id="auth-title">Welcome back</h3>
+      <p id="auth-blurb">Sign in and your conversations pick up where you left them.</p>
+
+      <div class="auth-tabs" role="tablist">
+        <button type="button" role="tab" id="auth-tab-login" class="active" aria-selected="true">Sign in</button>
+        <button type="button" role="tab" id="auth-tab-signup" aria-selected="false">Create account</button>
+      </div>
+
+      <form class="auth-form" id="auth-form" autocomplete="on">
+        <label class="auth-field" id="auth-name-field" hidden>
+          <span>Name <i>optional</i></span>
+          <input type="text" id="auth-name" autocomplete="name" placeholder="What should it call you?">
+        </label>
+        <label class="auth-field">
+          <span>Email</span>
+          <input type="email" id="auth-email" autocomplete="email" required placeholder="you@example.com">
+        </label>
+        <label class="auth-field">
+          <span>Password</span>
+          <input type="password" id="auth-password" autocomplete="current-password" required placeholder="••••••••">
+        </label>
+
+        <p class="auth-error" id="auth-error" hidden></p>
+
+        <label class="toggle-row auth-keep" id="auth-keep-row" hidden>
+          <input type="checkbox" id="auth-keep" checked>
+          <span>Save the chat I've already started</span>
+        </label>
+
+        <button type="submit" class="primary-btn block" id="auth-submit">Sign in</button>
+      </form>
+
+      <p class="auth-foot">Your password is stored only as a hash. Chats are kept in the app's database and used for nothing but answering you.</p>
     </div>
   </div>
 

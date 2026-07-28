@@ -2,3 +2,7 @@ flask==3.0.3
 google-genai>=1.0.0
 python-dotenv==1.0.1
 edge-tts>=7.0.0
+
+# Only used when DATABASE_URL is set (any hosted deployment). Local development
+# falls back to SQLite from the standard library and never imports this.
+psycopg[binary]>=3.2

@@ -100,6 +100,11 @@
 
 * { box-sizing: border-box; }
 
+/* Most of the app's own elements set an explicit `display`, which beats the
+   browser's default rule for [hidden] and leaves "hidden" things on screen.
+   Settling it once here means every `x.hidden = true` in the JS just works. */
+[hidden] { display: none !important; }
+
 html, body { height: 100%; margin: 0; }
 
 body {
@@ -1144,6 +1149,10 @@ kbd {
   background: color-mix(in srgb, var(--bg) 62%, transparent);
   backdrop-filter: blur(6px);
   animation: fade-in 140ms var(--ease);
+  /* Panels that size to their content (rather than capping at 72vh) can be
+     taller than a short window. Let the backdrop scroll so the buttons at the
+     bottom stay reachable instead of falling off the screen. */
+  overflow-y: auto;
 }
 .modal-backdrop[hidden] { display: none; }
 
@@ -1511,6 +1520,12 @@ kbd {
 }
 
 /* ---------- generic dialog ---------- */
+/* The backdrop is a flex row, so its default `align-items: stretch` pulls
+   every panel to full height. The scrolling panels (search, voice, settings,
+   memory) want that; these two are short and fixed, and stretching left a
+   slab of dead space under the buttons. */
+.dialog-panel, .auth-panel { align-self: flex-start; }
+
 .dialog-panel { max-width: 420px; }
 .dialog-panel h3 {
   font-family: var(--font-display);
@@ -1543,6 +1558,258 @@ kbd {
 #dialog-input[hidden] { display: none; }
 .dialog-panel .modal-actions { margin-top: 18px; border-top: none; }
 .dialog-panel.danger .primary-btn { background: var(--danger); color: #fff; }
+
+/* ---------- auth modal ---------- */
+.auth-panel {
+  max-width: 400px;
+  max-height: none;
+  padding: 26px 26px 20px;
+  text-align: center;
+  position: relative;
+  overflow: visible;
+}
+.auth-close { position: absolute; top: 12px; right: 12px; }
+
+.auth-mark {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  color: var(--accent);
+}
+.auth-mark svg { width: 24px; height: 24px; }
+
+.auth-panel h3 {
+  font-family: var(--font-display);
+  font-size: 19px;
+  margin: 0 0 5px;
+}
+.auth-panel > p {
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  padding: 3px;
+  margin-bottom: 18px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+}
+.auth-tabs button {
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 140ms var(--ease), color 140ms var(--ease);
+}
+.auth-tabs button.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.auth-form { display: grid; gap: 12px; text-align: left; }
+.auth-field { display: grid; gap: 6px; }
+.auth-field[hidden] { display: none; }
+.auth-field > span {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+.auth-field > span i {
+  font-style: normal;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+.auth-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+.auth-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.auth-error {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  color: var(--danger);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.auth-error[hidden] { display: none; }
+
+.auth-keep { margin-top: 2px; }
+.auth-keep[hidden] { display: none; }
+
+.primary-btn.block, .ghost-btn.block {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 11px 16px;
+}
+.primary-btn[disabled] { opacity: 0.6; pointer-events: none; }
+
+.auth-foot {
+  margin: 16px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+/* ---------- signed-out chrome ---------- */
+.guest-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 9px;
+  padding: 18px 14px;
+  margin: 4px 0;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.guest-card[hidden] { display: none; }
+.guest-card-icon {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 2px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.guest-card-icon svg { width: 20px; height: 20px; }
+.guest-card h3 {
+  font-family: var(--font-display);
+  font-size: 14px;
+  margin: 0;
+}
+.guest-card p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-faint);
+}
+.guest-card .primary-btn.block,
+.guest-card .ghost-btn.block { padding: 9px 12px; font-size: 13px; }
+
+.guest-bar {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 20px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--accent-line);
+  font-size: 12.5px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+}
+.guest-bar[hidden] { display: none; }
+.guest-bar svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--accent); }
+.guest-bar span { flex: 1; }
+.guest-bar b { color: var(--text); font-weight: 600; }
+.guest-bar button {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: filter 140ms var(--ease);
+}
+.guest-bar button:hover { filter: brightness(1.1); }
+
+/* ---------- account row ---------- */
+.account-row { padding-top: 8px; }
+.account-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+  text-align: left;
+  transition: border-color 140ms var(--ease), background-color 140ms var(--ease);
+}
+.account-btn:hover { border-color: var(--accent-line); background: var(--surface-3); }
+.avatar-chip {
+  width: 27px;
+  height: 27px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, var(--accent-2)));
+  color: var(--accent-ink);
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.account-text { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.account-text b {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-text i {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-caret { width: 15px; height: 15px; flex-shrink: 0; color: var(--text-faint); }
+
+/* Signed out, the account row is the call to action rather than a profile. */
+.account-row.guest .avatar-chip {
+  background: var(--surface-3);
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+}
 
 /* ============================== toast ============================== */
 .toast {

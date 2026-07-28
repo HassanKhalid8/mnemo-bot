@@ -9,6 +9,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-3.0-000000?style=for-the-badge&logo=flask&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Google_Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-22d3ee?style=for-the-badge)
 
@@ -26,18 +27,20 @@ Most chatbots forget you the moment you close the tab. Mnemo doesn't.
 
 Every LLM API is **stateless**. Send a message, get a reply, and the model retains nothing. The illusion of memory is entirely the application's job — you resend the whole transcript on every single turn.
 
-Mnemo starts from that primitive and builds four increasingly durable layers of memory on top of it:
+Mnemo starts from that primitive and builds five increasingly durable layers of memory on top of it:
 
 ```mermaid
 graph LR
     A["💬 One turn<br/><i>a single API call</i>"] --> B["📋 In-memory list<br/><i>survives the turn</i>"]
-    B --> C["💾 SQLite mirror<br/><i>survives a restart</i>"]
+    B --> C["💾 Database mirror<br/><i>survives a restart</i>"]
     C --> D["🧠 Extracted facts<br/><i>survives the conversation</i>"]
+    D --> E["👤 Your account<br/><i>survives the device</i>"]
 
     style A fill:#1e2430,stroke:#3a4152,color:#e9ecf3
     style B fill:#241f4d,stroke:#7c6cff,color:#e9ecf3
     style C fill:#123040,stroke:#22d3ee,color:#e9ecf3
     style D fill:#1d3b2f,stroke:#34d399,color:#e9ecf3
+    style E fill:#3b2d1d,stroke:#f59e0b,color:#e9ecf3
 ```
 
 Each layer outlives the one before it. That progression *is* the project.
@@ -57,7 +60,21 @@ Facts about you are pulled out of conversations in the background and fed into *
 <td width="50%" valign="top">
 
 ### 💾 Nothing is lost
-Every turn is mirrored to SQLite as it happens. Close the tab, kill the server, reboot the machine — your history is exactly where you left it.
+Every turn is mirrored to the database as it happens. Close the tab, kill the server, reboot the machine — your history is exactly where you left it.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+### 👤 Accounts, with a way in
+No login wall: land on the page and start typing. That chat lives in your browser and is never written down. Make an account and it's saved — along with everything the bot has learned — waiting for you on any device. The conversation you started signed-out comes with you.
+
+</td>
+<td width="50%" valign="top">
+
+### 🔒 Yours and only yours
+Every conversation, message and remembered fact hangs off a user id, and every query filters on it. Guessing someone else's conversation id returns a 404, not their chat.
 
 </td>
 </tr>
@@ -222,12 +239,114 @@ Open **http://localhost:5000**.
 | Variable | Default | Purpose |
 |---|---|---|
 | `GEMINI_API_KEY` | *required* | Your key from Google AI Studio |
+| `SECRET_KEY` | dev fallback | Signs the login cookie. **Set this in production** — changing it signs everyone out |
+| `DATABASE_URL` | *unset* | Postgres connection string. **Unset → local SQLite file** |
+| `SECURE_COOKIES` | auto | Send the session cookie over HTTPS only. Implied on Vercel |
 | `GEMINI_MODEL` | `gemini-flash-latest` | Default chat model |
 | `GEMINI_UTILITY_MODEL` | `gemini-flash-lite-latest` | Cheap model for background fact extraction |
 | `SUMMARY_TRIGGER_TOKENS` | `8000` | Token count that triggers summarisation |
 | `KEEP_RECENT_MESSAGES` | `8` | Turns kept verbatim when summarising |
+| `SERVERLESS` | auto | Set to `1` on serverless hosts. Vercel sets `VERCEL` itself |
 
 </details>
+
+---
+
+## Deploying
+
+Locally, history lives in a SQLite file. **That file cannot survive a serverless host** — the filesystem is wiped between invocations, so every visitor would get an empty database. Set `DATABASE_URL` and the exact same code talks to Postgres instead:
+
+```mermaid
+graph LR
+    A["DATABASE_URL<br/>unset"] -->|local dev| B["📁 SQLite file<br/><i>zero setup</i>"]
+    C["DATABASE_URL<br/>set"] -->|any host| D["🐘 Postgres<br/><i>survives anything</i>"]
+
+    style A fill:#1e2430,stroke:#3a4152,color:#e9ecf3
+    style B fill:#241f4d,stroke:#7c6cff,color:#e9ecf3
+    style C fill:#1e2430,stroke:#3a4152,color:#e9ecf3
+    style D fill:#123040,stroke:#22d3ee,color:#e9ecf3
+```
+
+Nothing else changes — the schema, the queries, and the in-memory list all behave identically.
+
+### 1 · Create a database
+
+[Supabase](https://supabase.com) has a free tier and is what this project is set up for. Create a project, then **Project Settings → Database → Connection string → URI**.
+
+> [!IMPORTANT]
+> Take the **pooler** string — its host contains `pooler.supabase.com` — not the direct `db.<ref>.supabase.co` one. Serverless functions open a fresh connection per request and will exhaust the direct host's connection limit. Remember to swap `[YOUR-PASSWORD]` for your real database password.
+
+The tables create themselves on first run, so there's no SQL to paste anywhere. [Neon](https://neon.tech) works identically if you'd rather use it.
+
+<details>
+<summary><b>Moving your existing local chats across</b></summary>
+
+<br/>
+
+Before accounts existed, everything in `chat_history.db` belonged to whoever was at the machine — so those rows have no owner and won't show up for anyone. `migrate_to_supabase.py` copies them into the hosted database under one account:
+
+```bash
+# 1. put the Supabase URI in .env as DATABASE_URL
+# 2. start the app and create your account through the sign-up form
+# 3. then, once:
+python migrate_to_supabase.py you@example.com --dry-run   # see what it would copy
+python migrate_to_supabase.py you@example.com             # do it
+```
+
+It only ever reads the SQLite file, and refuses to run twice for the same account unless you pass `--again` — so you can't end up with everything duplicated.
+
+</details>
+
+### 2 · Deploy
+
+<details open>
+<summary><b>Vercel</b></summary>
+
+<br/>
+
+`vercel.json` and `api/index.py` are already in the repo. Import the project on [vercel.com](https://vercel.com/new), then add three environment variables:
+
+```
+GEMINI_API_KEY   = your key
+SECRET_KEY       = python -c "import secrets; print(secrets.token_hex(32))"
+DATABASE_URL     = your Supabase pooler connection string
+```
+
+Deploy. Confirm it picked up the right store by visiting `/api/history` — it reports `"storage": "postgres"`.
+
+> [!WARNING]
+> **Vercel is a workable but imperfect host for this app.** Serverless functions are short-lived and isolated, which costs you two things:
+> - **Streaming may buffer.** Replies can arrive all at once instead of word-by-word. The app degrades gracefully — nothing breaks, it just feels less live.
+> - **Incognito threads are per-instance.** They're held in RAM by design, so if a follow-up request lands on a different instance the session reports as purged. Fine at low traffic, unreliable under load.
+
+</details>
+
+<details>
+<summary><b>Render — recommended for the full experience</b></summary>
+
+<br/>
+
+A normal long-running process, so streaming and incognito both work exactly as they do locally. Free tier available (spins down when idle, ~50s cold start).
+
+New → Web Service → connect the repo, then:
+
+| Setting | Value |
+|---|---|
+| Build command | `pip install -r requirements.txt` |
+| Start command | `gunicorn app:app --workers 1 --threads 8 --timeout 120` |
+| Environment | `GEMINI_API_KEY`, `SECRET_KEY`, `DATABASE_URL` |
+
+Add `gunicorn` to `requirements.txt` for this path. Use one worker so the in-memory conversation cache stays coherent.
+
+</details>
+
+### 3 · Verify
+
+```bash
+curl https://your-app.vercel.app/api/history
+```
+
+`"storage": "postgres"` means persistence is live. `"sqlite"` means `DATABASE_URL` didn't reach the app.
 
 ---
 
@@ -235,11 +354,15 @@ Open **http://localhost:5000**.
 
 ```
 mnemo/
-├── app.py              # Flask server · Gemini calls · the in-memory lists
-├── db.py               # SQLite: conversations, messages, memories, search
+├── app.py              # Flask server · Gemini calls · accounts · the in-memory lists
+├── db.py               # storage: SQLite or Postgres, same schema either way
 ├── tts.py              # edge-tts wrapper + curated voice list
+├── migrate_to_supabase.py  # one-shot: local SQLite history -> hosted Postgres
 ├── requirements.txt
+├── vercel.json         # serverless routing + bundled templates/static
 ├── .env.example
+├── api/
+│   └── index.py        # serverless entry point (re-exports the Flask app)
 ├── templates/
 │   └── index.html      # app shell
 └── static/
@@ -287,9 +410,10 @@ mnemo/
 
 ## Roadmap
 
+- [x] Multi-user sessions keyed on a cookie
+- [ ] Password reset by email
 - [ ] File and image attachments (Gemini is already multimodal)
 - [ ] SQLite FTS5 for ranked search
-- [ ] Multi-user sessions keyed on a cookie
 - [ ] Token and latency dashboard
 
 ---

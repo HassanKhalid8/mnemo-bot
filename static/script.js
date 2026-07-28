@@ -82,6 +82,33 @@ const el = {
   memoryDedupe: $("memory-dedupe"),
   rememberToggle: $("remember-toggle"),
 
+  authModal: $("auth-modal"),
+  authClose: $("auth-close"),
+  authTitle: $("auth-title"),
+  authBlurb: $("auth-blurb"),
+  authTabLogin: $("auth-tab-login"),
+  authTabSignup: $("auth-tab-signup"),
+  authForm: $("auth-form"),
+  authNameField: $("auth-name-field"),
+  authName: $("auth-name"),
+  authEmail: $("auth-email"),
+  authPassword: $("auth-password"),
+  authError: $("auth-error"),
+  authKeepRow: $("auth-keep-row"),
+  authKeep: $("auth-keep"),
+  authSubmit: $("auth-submit"),
+
+  accountRow: $("account-row"),
+  accountBtn: $("account-btn"),
+  accountInitial: $("account-initial"),
+  accountName: $("account-name"),
+  accountSub: $("account-sub"),
+  guestCard: $("guest-card"),
+  guestSignup: $("guest-signup"),
+  guestLogin: $("guest-login"),
+  guestBar: $("guest-bar"),
+  guestBarSignin: $("guest-bar-signin"),
+
   dialogModal: $("dialog-modal"),
   dialogPanel: document.querySelector(".dialog-panel"),
   dialogTitle: $("dialog-title"),
@@ -96,6 +123,11 @@ const el = {
 
 const state = {
   config: { models: [], default_model: "", default_system_prompt: "" },
+  // null = signed out. Everything that touches saved data checks this first;
+  // signed out, `messages` is the *only* copy of the conversation and gets
+  // posted back to the server with each turn.
+  user: null,
+  authMode: "login",
   conversations: [],
   activeId: null,
   conversation: null,
@@ -142,7 +174,15 @@ async function api(path, options = {}) {
     ...options,
   });
   const data = res.status === 204 ? {} : await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) {
+    // The cookie expired, or was cleared in another tab. Fall back to the
+    // signed-out UI rather than leaving a sidebar full of chats we can no
+    // longer open.
+    if (res.status === 401 && data.auth_required && state.user) signedOut();
+    const err = new Error(data.error || `Request failed (${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
   return data;
 }
 
@@ -251,6 +291,203 @@ el.themeToggle.addEventListener("click", () => {
   applyTheme(current === "dark" ? "light" : "dark");
 });
 
+/* =============================== auth =============================== */
+
+/** Everything that has to flip between the signed-in and signed-out UI.
+ *  Signed out the app still chats — it just has nowhere to put the result, so
+ *  the sidebar becomes a pitch for making an account and the features that
+ *  read stored data are taken away rather than left to fail. */
+function applyAuthChrome() {
+  const signedIn = Boolean(state.user);
+
+  el.guestCard.hidden = signedIn;
+  el.convList.hidden = !signedIn;
+  el.deepSearch.hidden = !signedIn;
+  el.filter.parentElement.hidden = !signedIn;
+  el.memoryBtn.hidden = !signedIn;
+  el.incognitoBtn.hidden = !signedIn;
+  el.statLine.hidden = !signedIn;
+  el.guestBar.hidden = signedIn || Boolean(state.incognitoId);
+  el.accountRow.classList.toggle("guest", !signedIn);
+
+  // Both of these otherwise belong to incognito; signed out the same things
+  // are true, so the same chrome applies.
+  el.notSavedChip.hidden = signedIn && !state.incognitoId;
+  el.contextMeter.hidden = !signedIn || Boolean(state.incognitoId);
+
+  if (signedIn) {
+    const label = state.user.name || state.user.email.split("@")[0];
+    el.accountInitial.textContent = label.trim()[0] || "?";
+    el.accountName.textContent = label;
+    el.accountSub.textContent = state.user.email;
+    el.accountBtn.title = "Sign out";
+  } else {
+    el.accountInitial.textContent = "?";
+    el.accountName.textContent = "Not signed in";
+    el.accountSub.textContent = "Chats aren't being saved";
+    el.accountBtn.title = "Sign in or create an account";
+  }
+}
+
+function openAuth(mode = "login") {
+  setAuthMode(mode);
+  el.authError.hidden = true;
+  el.authPassword.value = "";
+  // Only worth offering to keep the transcript if there is one.
+  const hasGuestChat = !state.user && state.messages.length > 0;
+  el.authKeepRow.hidden = !hasGuestChat;
+  el.authKeep.checked = true;
+  el.authModal.hidden = false;
+  closeSidebar();
+  el.authEmail.focus();
+}
+
+function closeAuth() {
+  el.authModal.hidden = true;
+  el.input.focus();
+}
+
+function setAuthMode(mode) {
+  state.authMode = mode;
+  const signup = mode === "signup";
+
+  el.authTabLogin.classList.toggle("active", !signup);
+  el.authTabSignup.classList.toggle("active", signup);
+  el.authTabLogin.setAttribute("aria-selected", String(!signup));
+  el.authTabSignup.setAttribute("aria-selected", String(signup));
+
+  el.authTitle.textContent = signup ? "Make it remember you" : "Welcome back";
+  el.authBlurb.textContent = signup
+    ? "An account gives this chat somewhere to live — your threads and everything it learns, waiting for you next time."
+    : "Sign in and your conversations pick up where you left them.";
+  el.authSubmit.textContent = signup ? "Create account" : "Sign in";
+  el.authNameField.hidden = !signup;
+  el.authPassword.autocomplete = signup ? "new-password" : "current-password";
+  el.authError.hidden = true;
+}
+
+el.authTabLogin.addEventListener("click", () => setAuthMode("login"));
+el.authTabSignup.addEventListener("click", () => setAuthMode("signup"));
+el.authClose.addEventListener("click", closeAuth);
+el.authModal.addEventListener("click", (e) => {
+  if (e.target === el.authModal) closeAuth();
+});
+
+el.authForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const signup = state.authMode === "signup";
+  const body = {
+    email: el.authEmail.value.trim(),
+    password: el.authPassword.value,
+  };
+  if (signup) body.name = el.authName.value.trim();
+
+  // Grab the guest transcript before signing in, because signing in is what
+  // wipes the signed-out view.
+  const carryOver = (!state.user && el.authKeep.checked && !el.authKeepRow.hidden)
+    ? state.messages.filter((m) => m.text).map((m) => ({ role: m.role, text: m.text }))
+    : [];
+
+  el.authError.hidden = true;
+  el.authSubmit.disabled = true;
+  el.authSubmit.textContent = signup ? "Creating…" : "Signing in…";
+
+  try {
+    const data = await api(`/api/auth/${signup ? "signup" : "login"}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    closeAuth();
+    await signedIn(data.user, carryOver);
+  } catch (err) {
+    el.authError.textContent = err.message;
+    el.authError.hidden = false;
+    // Keep the email they typed, clear the password and put the cursor back
+    // in it — a wrong password is the overwhelmingly likely reason to be here.
+    el.authPassword.value = "";
+    el.authPassword.focus();
+  } finally {
+    el.authSubmit.disabled = false;
+    // Just the label. Calling setAuthMode() here would re-hide the error we
+    // may have only just shown.
+    el.authSubmit.textContent = signup ? "Create account" : "Sign in";
+  }
+});
+
+/** Adopt an account: load its data, and rescue whatever was said while
+ *  signed out. */
+async function signedIn(user, carryOver = []) {
+  state.user = user;
+  state.incognitoId = null;
+  applyIncognitoChrome(false);
+  applyAuthChrome();
+
+  await refreshConversations().catch(() => {});
+  refreshMemories();
+
+  if (carryOver.length) {
+    try {
+      const saved = await api("/api/conversations/import", {
+        method: "POST",
+        body: JSON.stringify({ messages: carryOver }),
+      });
+      await refreshConversations();
+      await openConversation(saved.conversation.id);
+      toast(`Signed in — and that chat is saved as "${saved.conversation.title}".`);
+      return;
+    } catch {
+      toast("Signed in, but that chat couldn't be saved.", "error");
+    }
+  }
+
+  startBlankConversation();
+  toast(`Signed in as ${user.email}.`);
+}
+
+/** Drop back to the signed-out UI. Called both on an explicit sign-out and
+ *  when the server tells us the cookie is no longer good. */
+function signedOut() {
+  state.user = null;
+  state.conversations = [];
+  state.memories = [];
+  state.incognitoId = null;
+  applyIncognitoChrome(false);
+  applyAuthChrome();
+  renderSidebar();
+  updateStats();
+  renderMemories();
+  startBlankConversation();
+}
+
+async function signOut() {
+  const yes = await askConfirm(
+    "Sign out?",
+    "Your chats stay saved — they'll be here when you sign back in. Anything you say after this won't be.",
+    "Sign out",
+    false
+  );
+  if (!yes) return;
+  try { await api("/api/auth/logout", { method: "POST" }); } catch { /* clear locally anyway */ }
+  signedOut();
+  toast("Signed out.");
+}
+
+el.accountBtn.addEventListener("click", () => {
+  if (state.user) signOut();
+  else openAuth("login");
+});
+el.guestSignup.addEventListener("click", () => openAuth("signup"));
+el.guestLogin.addEventListener("click", () => openAuth("login"));
+el.guestBarSignin.addEventListener("click", () => openAuth("signup"));
+
+/** Guard for the features that need somewhere to save to. */
+function requireAccount(what) {
+  if (state.user) return true;
+  toast(`${what} needs an account.`);
+  openAuth("signup");
+  return false;
+}
+
 /* ============================== sidebar ============================== */
 
 function openSidebar() { el.app.classList.add("sidebar-open"); el.scrim.hidden = false; }
@@ -343,6 +580,7 @@ function renderSidebar() {
 }
 
 async function refreshConversations() {
+  if (!state.user) { state.conversations = []; renderSidebar(); return; }
   const data = await api("/api/conversations");
   state.conversations = data.conversations;
   renderSidebar();
@@ -352,7 +590,7 @@ async function refreshConversations() {
 function updateStats() {
   const convs = state.conversations.length;
   const msgs = state.conversations.reduce((n, c) => n + c.message_count, 0);
-  el.statLine.textContent = `${convs} chat${convs === 1 ? "" : "s"} · ${msgs} messages on disk`;
+  el.statLine.textContent = `${convs} chat${convs === 1 ? "" : "s"} · ${msgs} messages saved`;
 }
 
 el.filter.addEventListener("input", () => {
@@ -389,6 +627,9 @@ function applyIncognitoChrome(on) {
 
 async function enterIncognito() {
   if (state.incognitoId) return;
+  // Signed out there is nothing to hide *from* — that chat is already
+  // unsaved, and the guest bar says so.
+  if (!requireAccount("Incognito")) return;
   try {
     const data = await api("/api/incognito", { method: "POST" });
     state.incognitoId = data.incognito_id;
@@ -499,7 +740,7 @@ function setContext(context) {
 }
 
 async function refreshContext() {
-  if (!state.activeId || state.incognitoId) { setContext(null); return; }
+  if (!state.user || !state.activeId || state.incognitoId) { setContext(null); return; }
   try {
     const data = await api(`/api/context?conversation_id=${state.activeId}`);
     setContext(data.context);
@@ -742,15 +983,29 @@ async function runTurn({ message = "", regenerateFrom = null, editMessageId = nu
   };
 
   try {
-    const body = state.incognitoId
-      ? { message, incognito_id: state.incognitoId }
-      : {
-          message,
-          conversation_id: state.activeId,
-          regenerate_from: regenerateFrom,
-          edit_message_id: editMessageId,
-          remember: prefs.get("remember", true),
-        };
+    let body;
+    if (!state.user) {
+      // Signed out the server keeps nothing between requests, so the browser
+      // has to hand back the transcript it is holding. Everything except the
+      // turn being sent — that goes in `message`.
+      body = {
+        message,
+        guest_history: state.messages
+          .slice(0, -1)
+          .filter((m) => m.text)
+          .map((m) => ({ role: m.role, text: m.text })),
+      };
+    } else if (state.incognitoId) {
+      body = { message, incognito_id: state.incognitoId };
+    } else {
+      body = {
+        message,
+        conversation_id: state.activeId,
+        regenerate_from: regenerateFrom,
+        edit_message_id: editMessageId,
+        remember: prefs.get("remember", true),
+      };
+    }
 
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -839,7 +1094,7 @@ async function runTurn({ message = "", regenerateFrom = null, editMessageId = nu
     replyNode.replaceWith(buildMessage(reply, state.messages.length - 1));
     scrollToBottom();
 
-    if (!state.incognitoId) {
+    if (state.user && !state.incognitoId) {
       refreshContext();          // token count, off the critical path
       await refreshConversations();
       // Fact extraction runs in a background thread server-side, so give it a
@@ -864,7 +1119,7 @@ async function runTurn({ message = "", regenerateFrom = null, editMessageId = nu
         replyNode.remove();
       }
       toast("Stopped.");
-      if (!state.incognitoId) refreshConversations().catch(() => {});
+      if (state.user && !state.incognitoId) refreshConversations().catch(() => {});
     } else {
       toast(err.message, "error");
     }
@@ -922,6 +1177,7 @@ el.menu.addEventListener("click", async (e) => {
     toast("Incognito chats aren't saved, so there's nothing to change.", "error");
     return;
   }
+  if (!requireAccount("Renaming, pinning and per-chat settings")) return;
   if (!state.activeId) { toast("Send a message first.", "error"); return; }
 
   try {
@@ -1082,6 +1338,7 @@ el.settingsSave.addEventListener("click", async () => {
 /* ============================== memory ============================== */
 
 async function refreshMemories() {
+  if (!state.user) { state.memories = []; el.memoryCount.textContent = "0"; return; }
   try {
     const data = await api("/api/memories");
     state.memories = data.memories;
@@ -1195,10 +1452,11 @@ el.rememberToggle.addEventListener("change", () => {
 /* ============================== search ============================== */
 
 function openSearch() {
+  if (!requireAccount("Searching your history")) return;
   el.searchModal.hidden = false;
   el.searchInput.value = "";
   el.searchResults.innerHTML =
-    `<p class="search-hint">Type at least 2 characters. Results come straight out of the SQLite history.</p>`;
+    `<p class="search-hint">Type at least 2 characters. Results come straight out of your saved history.</p>`;
   state.searchRows = [];
   state.searchCursor = -1;
   setTimeout(() => el.searchInput.focus(), 20);
@@ -1570,6 +1828,7 @@ document.addEventListener("keydown", (e) => {
     startBlankConversation();
   } else if (e.key === "Escape") {
     if (dialogResolve) closeDialog(null);
+    else if (!el.authModal.hidden) closeAuth();
     else if (!el.searchModal.hidden) closeSearch();
     else if (!el.voiceModal.hidden) el.voiceModal.hidden = true;
     else if (!el.settingsModal.hidden) el.settingsModal.hidden = true;
@@ -1589,6 +1848,16 @@ document.addEventListener("keydown", (e) => {
   syncRangeLabels();
 
   loadVoices();
+
+  // Who we are decides what the rest of the boot is even allowed to ask for,
+  // so this comes first. A signed-out visitor still gets a working chatbot —
+  // no login wall, just no sidebar to fill.
+  try {
+    const data = await api("/api/auth/me");
+    state.user = data.user;
+  } catch { /* treated as signed out */ }
+  applyAuthChrome();
+
   refreshMemories();
 
   try {
