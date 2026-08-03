@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 12" width="1000" height="12" role="presentation">
+  <defs>
+    <linearGradient id="dSweep" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0f9e9b" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#0f9e9b" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#0f9e9b" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="dClip"><rect x="0" y="5" width="1000" height="2" rx="1"/></clipPath>
+  </defs>
+  <rect x="0" y="5" width="1000" height="2" rx="1" fill="#e6ebf2"/>
+  <g clip-path="url(#dClip)">
+    <rect x="-340" y="5" width="340" height="2" fill="url(#dSweep)">
+      <animate attributeName="x" values="-340;1000" dur="3.6s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+  <path d="M500 2 l4 4 -4 4 -4 -4 z" fill="#0f9e9b">
+    <animate attributeName="opacity" values=".35;1;.35" dur="2.4s" repeatCount="indefinite"/>
+  </path>
+</svg>
