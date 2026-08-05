@@ -110,6 +110,9 @@ MIGRATIONS = [
     ("memories", "user_id", "BIGINT"),
 ]
 
+# Tables that hold user-owned data. Used by the Postgres hardening step below.
+_TABLES = ("users", "conversations", "messages", "memories")
+
 # Indexes over columns that MIGRATIONS adds, so they can only be created once
 # those columns exist.
 POST_MIGRATION_SCHEMA = [
@@ -240,6 +243,71 @@ def init_db():
 
         for statement in POST_MIGRATION_SCHEMA:
             conn.execute(statement)
+
+        if IS_POSTGRES:
+            _harden_postgres(conn)
+
+
+def _harden_postgres(conn):
+    """Close the hole Supabase's linter flags as `rls_disabled_in_public`.
+
+    A Supabase project publishes every table in the `public` schema through a
+    REST API at `https://<ref>.supabase.co/rest/v1/`, reachable with the
+    project's *anonymous* key — a key that is designed to be public and shipped
+    to browsers. What stops the world from reading `users` through it is not
+    secrecy; it is Row-Level Security. With RLS off, that endpoint hands anyone
+    holding the anon key full SELECT/INSERT/UPDATE/DELETE on every row.
+
+    This app never touches that REST API. It connects straight to Postgres as
+    the `postgres` role over DATABASE_URL, and that role has BYPASSRLS, so both
+    statements below are invisible to every query in this module:
+
+      1. ENABLE ROW LEVEL SECURITY — with zero policies defined, the default is
+         deny. `anon` and `authenticated` now match no rows at all.
+      2. REVOKE — belt and braces. Even if a policy were added later by
+         accident, neither role holds a privilege to exercise it.
+
+    Both are idempotent, so this runs on every start. New deployment, new
+    Supabase project, same protection — nobody has to remember to click it in
+    the dashboard.
+
+    Each step is checked before it is applied, in the same guard-then-alter
+    style as the column migrations above. That is not just tidiness: `init_db`
+    runs at import in app.py, which on serverless means *every cold start*, and
+    ALTER TABLE takes an ACCESS EXCLUSIVE lock even when it changes nothing.
+    Once hardened, the whole function is two catalog reads and no locks.
+    """
+    unprotected = [
+        row["relname"] for row in conn.execute(
+            "SELECT c.relname FROM pg_class c "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = 'public' AND NOT c.relrowsecurity "
+            f"AND c.relname IN ({', '.join('?' * len(_TABLES))})",
+            _TABLES,
+        ).fetchall()
+    ]
+    for table in unprotected:
+        conn.execute(f"ALTER TABLE public.{table} ENABLE ROW LEVEL SECURITY")
+
+    # `anon` and `authenticated` exist on Supabase but not on a plain Postgres
+    # (or Neon), where REVOKE against a missing role is a hard error — and
+    # has_table_privilege() on an unknown role raises rather than returning
+    # false. So the roles are looked up first, and only the grants that are
+    # actually still held get revoked.
+    roles = [
+        row["rolname"] for row in conn.execute(
+            "SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated')"
+        ).fetchall()
+    ]
+    for role in roles:
+        for table in _TABLES:
+            still_granted = conn.execute(
+                "SELECT has_table_privilege(?, ?, 'SELECT, INSERT, UPDATE, DELETE') "
+                "AS granted",
+                (role, f"public.{table}"),
+            ).fetchone()["granted"]
+            if still_granted:
+                conn.execute(f"REVOKE ALL ON public.{table} FROM {role}")
 
 
 def _has_legacy_text_unique(conn):
